@@ -4,9 +4,22 @@
 The purpose of this project is to read, analyze, and potentially re-flash the EEPROM from a Honda Civic dashboard. The primary goal is to recover a dashboard that is suspected to have corrupted EEPROM data.
 
 ## Hardware & Tools
-- **Dashboard**: Honda Civic instrument cluster
+- **Dashboard**: Honda Civic 8th gen (FD/FK/FN) instrument cluster, 2006–2012
+- **EEPROM Chip**: Microchip **93C76** — 8 Kbit, organized as **512 × 16-bit words**
 - **Programmer**: KeeYees S018 SOP8 Test Clip with CH341A Programmer (USB)
 - **Host OS**: Windows 11 (ARM edition, running on Apple Silicon via VMware Fusion Pro)
+
+> ⚠️ **IMPORTANT: 8-Bit Reader / 16-Bit Chip Byte Ordering**
+>
+> The 93C76 stores data as **16-bit words**, but the CH341A programmer reads/writes in **8-bit (byte) mode**. This causes **every pair of bytes to be swapped** in the raw `.bin` files relative to the chip's native word order.
+>
+> For example, a 16-bit word `0x7812` on the chip is read as bytes `12 78` in the dump.
+>
+> **Practical impact:**
+> - ASCII strings like part numbers appear scrambled in raw dumps (e.g., `8702` instead of `7802`)
+> - 16-bit numeric values must be interpreted as **little-endian** in the raw dump (equivalent to big-endian in native word order)
+> - The `EEPROM_BYTE_MAP.md` document presents all values in **native 16-bit word order** (byte-swapped from raw) for clarity
+> - When writing back to the chip, the programmer handles the swap automatically — just write the `.bin` file as-is
 
 ## Project Plan
 
