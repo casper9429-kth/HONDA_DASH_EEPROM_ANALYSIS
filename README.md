@@ -36,11 +36,12 @@ All tools handle this automatically.
 
 ## Hardware
 
-- **EEPROM**: 93C76 — 1024 bytes (Seiko S-93C76A or Microchip 93C76)
-- **Programmer**: CH341A + SOP8 test clip (5V mod required)
-- **Software**: NeoProgrammer on Windows
+- **EEPROM**: 93C76 — 1024 bytes. Use Seiko S-93C76ADFJ-TB-U or Microchip 93C76**B** (not A!)
+- **Programmer**: CH341A Mini Programmer + SOP8 clip (5V mod required, adapter rewiring required)
+- **Computer**: x86 Windows PC (ARM Windows does not work with CH341A drivers)
+- **Software**: [NeoProgrammer](https://github.com/YTEC-info/CH341A-Softwares) V2.2.0.10
 
-See [docs/HARDWARE_SETUP.md](docs/HARDWARE_SETUP.md) for wiring and setup.
+See [docs/HARDWARE_SETUP.md](docs/HARDWARE_SETUP.md) for the complete step-by-step guide.
 
 ## Docs
 

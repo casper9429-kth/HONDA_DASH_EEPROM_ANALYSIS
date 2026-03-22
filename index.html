@@ -314,22 +314,6 @@ body::before {
   margin-left: 4px;
 }
 
-.dumps-cta {
-  font-size: 0.9rem;
-  color: var(--text-muted);
-  padding-top: 16px;
-  border-top: 1px solid var(--border);
-}
-
-.dumps-cta a {
-  color: var(--accent);
-  text-decoration: none;
-}
-
-.dumps-cta a:hover {
-  text-decoration: underline;
-}
-
 .browse-link {
   display: inline-block;
   margin-bottom: 16px;
@@ -340,96 +324,6 @@ body::before {
 
 .browse-link:hover {
   text-decoration: underline;
-}
-
-/* ---- Community ---- */
-.community-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 16px;
-}
-
-.community-card {
-  display: block;
-  padding: 22px 20px;
-  background: var(--bg-card);
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  text-decoration: none;
-  color: inherit;
-  transition: background 0.2s, border-color 0.2s;
-}
-
-.community-card:hover {
-  background: var(--bg-card-hover);
-  border-color: var(--border-light);
-}
-
-.community-card h4 {
-  font-size: 0.95rem;
-  font-weight: 600;
-  color: #fff;
-  margin-bottom: 6px;
-}
-
-.community-card p {
-  font-size: 0.82rem;
-  color: var(--text-muted);
-  line-height: 1.55;
-}
-
-/* ---- Reference table ---- */
-.ref-section {
-  padding: 48px 0 32px;
-}
-
-.ref-table-wrap {
-  overflow-x: auto;
-  -webkit-overflow-scrolling: touch;
-}
-
-.ref-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 0.88rem;
-  font-family: var(--mono);
-}
-
-.ref-table th,
-.ref-table td {
-  text-align: left;
-  padding: 12px 16px;
-  border: 1px solid var(--border);
-}
-
-.ref-table th {
-  background: var(--bg-raised);
-  color: var(--text-muted);
-  font-weight: 600;
-  font-family: var(--sans);
-  font-size: 0.82rem;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-}
-
-.ref-table td {
-  background: var(--bg-card);
-  color: var(--text);
-}
-
-.ref-table td:first-child {
-  font-family: var(--sans);
-  font-weight: 500;
-  color: var(--text-muted);
-}
-
-.ref-table code {
-  color: var(--accent);
-  font-size: 0.85rem;
-}
-
-.check {
-  color: var(--accent);
 }
 
 /* ---- Footer ---- */
@@ -470,19 +364,6 @@ body::before {
     gap: 10px;
   }
 
-  .community-grid {
-    grid-template-columns: 1fr;
-    gap: 12px;
-  }
-
-  .ref-table {
-    font-size: 0.8rem;
-  }
-
-  .ref-table th,
-  .ref-table td {
-    padding: 10px 12px;
-  }
 }
 
 @media (max-width: 480px) {
@@ -507,7 +388,7 @@ body::before {
   <section class="hero">
     <h1>Honda Civic <span>93C76</span> EEPROM Tools</h1>
     <p class="subtitle">Open-source tools for reading, analyzing, and repairing 8th gen (2006&ndash;2012) instrument cluster EEPROMs</p>
-    <span class="badge">Community-driven &middot; No backend &middot; 100% browser-based</span>
+    <span class="badge">No backend &middot; 100% browser-based</span>
   </section>
 
   <!-- Tools -->
@@ -599,7 +480,7 @@ body::before {
   <!-- EEPROM Dumps -->
   <section class="section">
     <h2 class="section-title">EEPROM Dumps</h2>
-    <p class="section-desc">Community-contributed binary dumps organized by trim and fuel type.</p>
+    <p class="section-desc">Binary dumps organized by trim and fuel type.</p>
     <div class="dumps-content">
       <ul class="dumps-list">
         <li><code>A_Petrol_SNB</code> <span>&mdash; European petrol trim</span></li>
@@ -607,72 +488,6 @@ body::before {
         <li><code>C_Diesel_SMJ</code> <span>&mdash; Diesel i-CTDi / i-DTEC</span></li>
       </ul>
       <a href="Files/" class="browse-link">&rarr; Browse all dumps on GitHub</a>
-      <div class="dumps-cta">
-        Have a dump to share? <a href="#" id="issue-link-dumps">Open an Issue</a> or submit a <a href="#" id="pr-link-dumps">Pull Request</a>.
-      </div>
-    </div>
-  </section>
-
-  <!-- Community -->
-  <section class="section">
-    <h2 class="section-title">Community</h2>
-    <p class="section-desc">This project is built on shared knowledge. Get involved.</p>
-    <div class="community-grid">
-
-      <a href="#" id="link-discussions" class="community-card">
-        <h4>Discussions</h4>
-        <p>Ask questions, share results, vote on what works.</p>
-      </a>
-
-      <a href="#" id="link-issues" class="community-card">
-        <h4>Issues</h4>
-        <p>Report bugs, upload EEPROM dumps, request features.</p>
-      </a>
-
-      <a href="#" id="link-contribute" class="community-card">
-        <h4>Contribute</h4>
-        <p>Submit working dumps via PR. Help map unknown bytes.</p>
-      </a>
-
-    </div>
-  </section>
-
-  <!-- Quick Reference -->
-  <section class="ref-section">
-    <h2 class="section-title">Quick Reference</h2>
-    <p class="section-desc">Key differences between diesel and petrol EEPROM variants.</p>
-    <div class="ref-table-wrap">
-      <table class="ref-table">
-        <thead>
-          <tr>
-            <th></th>
-            <th>Diesel (SMJ)</th>
-            <th>Petrol (SNA / SNB)</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr>
-            <td>Header</td>
-            <td><code>BA 65</code></td>
-            <td><code>FF 77</code></td>
-          </tr>
-          <tr>
-            <td>Odometer formula</td>
-            <td>km = value &times; 31</td>
-            <td>km = value &times; 32</td>
-          </tr>
-          <tr>
-            <td>Location</td>
-            <td><code>0x180&ndash;0x1BF</code></td>
-            <td><code>0x180&ndash;0x1BF</code></td>
-          </tr>
-          <tr>
-            <td>Global checksum</td>
-            <td><span class="check">None</span></td>
-            <td><span class="check">None</span></td>
-          </tr>
-        </tbody>
-      </table>
     </div>
   </section>
 
@@ -694,25 +509,8 @@ body::before {
     repoUrl = 'https://github.com/casper9429-kth/HONDA_DASH_EEPROM_ANALYSIS';
   }
 
-  // Community links
-  var el;
-  el = document.getElementById('link-discussions');
-  if (el) el.href = repoUrl + '/discussions';
-
-  el = document.getElementById('link-issues');
-  if (el) el.href = repoUrl + '/issues';
-
-  el = document.getElementById('link-contribute');
-  if (el) el.href = repoUrl;
-
-  // Dumps section links
-  el = document.getElementById('issue-link-dumps');
-  if (el) el.href = repoUrl + '/issues';
-
-  el = document.getElementById('pr-link-dumps');
-  if (el) el.href = repoUrl + '/pulls';
-
   // Footer
+  var el;
   el = document.getElementById('link-repo-footer');
   if (el) el.href = repoUrl;
 })();
