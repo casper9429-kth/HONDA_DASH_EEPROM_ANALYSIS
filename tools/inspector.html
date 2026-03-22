@@ -1,0 +1,1052 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Honda 93C76 EEPROM Inspector</title>
+<style>
+:root {
+  --bg: #0d1117;
+  --bg-secondary: #161b22;
+  --bg-tertiary: #21262d;
+  --border: #30363d;
+  --text: #c9d1d9;
+  --text-muted: #8b949e;
+  --text-bright: #f0f6fc;
+  --accent: #58a6ff;
+  --red: #f85149;
+  --green: #3fb950;
+  --blue: #58a6ff;
+  --orange: #d29922;
+  --purple: #bc8cff;
+  --cyan: #39d2c0;
+  --pink: #f778ba;
+  --yellow: #e3b341;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+}
+
+.mono { font-family: 'SF Mono', 'Cascadia Code', 'Fira Code', 'Consolas', monospace; }
+
+header {
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border);
+  padding: 16px 24px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+header h1 {
+  font-size: 18px;
+  color: var(--text-bright);
+  font-weight: 600;
+}
+
+header .subtitle {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.container {
+  max-width: 1600px;
+  margin: 0 auto;
+  padding: 20px 24px;
+}
+
+/* Drop Zone */
+.drop-zone {
+  border: 2px dashed var(--border);
+  border-radius: 8px;
+  padding: 32px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.2s;
+  background: var(--bg-secondary);
+  margin-bottom: 16px;
+}
+
+.drop-zone:hover, .drop-zone.dragover {
+  border-color: var(--accent);
+  background: rgba(88, 166, 255, 0.05);
+}
+
+.drop-zone h3 {
+  color: var(--text-bright);
+  margin-bottom: 6px;
+  font-size: 15px;
+}
+
+.drop-zone p {
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.drop-zone input[type="file"] { display: none; }
+
+/* File Cards */
+.file-cards {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 20px;
+}
+
+.file-card {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px 16px;
+  min-width: 220px;
+  max-width: 300px;
+  flex: 1;
+  position: relative;
+  border-left: 4px solid;
+}
+
+.file-card .fc-name {
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--text-bright);
+  margin-bottom: 6px;
+  padding-right: 24px;
+  word-break: break-all;
+}
+
+.file-card .fc-detail {
+  font-size: 12px;
+  color: var(--text-muted);
+  line-height: 1.6;
+}
+
+.file-card .fc-detail span {
+  color: var(--text);
+}
+
+.file-card .fc-remove {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 16px;
+  line-height: 1;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.file-card .fc-remove:hover {
+  background: var(--bg-tertiary);
+  color: var(--red);
+}
+
+/* Tabs */
+.tab-bar {
+  display: flex;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 20px;
+  gap: 0;
+}
+
+.tab-btn {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  padding: 10px 20px;
+  font-size: 14px;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  transition: all 0.15s;
+  font-family: inherit;
+}
+
+.tab-btn:hover {
+  color: var(--text);
+}
+
+.tab-btn.active {
+  color: var(--text-bright);
+  border-bottom-color: var(--accent);
+}
+
+.tab-content { display: none; }
+.tab-content.active { display: block; }
+
+.empty-state {
+  text-align: center;
+  padding: 60px 20px;
+  color: var(--text-muted);
+  font-size: 14px;
+}
+
+/* Hex View */
+.hex-controls {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+
+.hex-controls label {
+  font-size: 13px;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+}
+
+.hex-controls input[type="checkbox"] {
+  accent-color: var(--accent);
+}
+
+.hex-table-wrapper {
+  overflow-x: auto;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg-secondary);
+}
+
+table.hex-table {
+  border-collapse: collapse;
+  width: 100%;
+  font-family: 'SF Mono', 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+table.hex-table th {
+  background: var(--bg-tertiary);
+  color: var(--text-muted);
+  padding: 6px 8px;
+  text-align: left;
+  font-weight: 600;
+  font-size: 11px;
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  border-bottom: 1px solid var(--border);
+}
+
+table.hex-table td {
+  padding: 3px 4px;
+  border-bottom: 1px solid rgba(48,54,61,0.4);
+  vertical-align: middle;
+}
+
+table.hex-table tr:hover td {
+  background: rgba(88,166,255,0.04);
+}
+
+.hex-offset {
+  color: var(--text-muted);
+  padding-right: 10px !important;
+  text-align: right;
+  user-select: none;
+  width: 50px;
+}
+
+.hex-region {
+  color: var(--text-muted);
+  font-size: 10px;
+  max-width: 160px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  padding-right: 12px !important;
+  user-select: none;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+}
+
+.hex-bytes {
+  letter-spacing: 0.5px;
+}
+
+.hex-bytes .hb {
+  display: inline-block;
+  width: 22px;
+  text-align: center;
+  padding: 1px 0;
+  border-radius: 2px;
+  cursor: default;
+}
+
+.hex-bytes .hb:hover {
+  background: rgba(88,166,255,0.15);
+}
+
+.hex-bytes .hb.diff {
+  background: rgba(248,81,73,0.2);
+  color: var(--red);
+  font-weight: 600;
+}
+
+.hex-bytes .hb.zero { color: #484f58; }
+.hex-bytes .hb.ff { color: #484f58; }
+
+.hex-ascii {
+  color: var(--text-muted);
+  padding-left: 8px !important;
+  border-left: 1px solid var(--border);
+  letter-spacing: 1px;
+}
+
+.hex-ascii .ac { cursor: default; }
+.hex-ascii .ac.diff {
+  color: var(--red);
+  font-weight: 600;
+}
+
+.hex-file-sep {
+  border-left: 2px solid var(--border);
+  padding-left: 10px !important;
+}
+
+/* Tooltip */
+.tooltip {
+  position: fixed;
+  background: #1c2129;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 8px 12px;
+  font-size: 12px;
+  color: var(--text);
+  pointer-events: none;
+  z-index: 100;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+  display: none;
+  max-width: 280px;
+  line-height: 1.5;
+}
+
+.tooltip .tt-label { color: var(--text-muted); }
+.tooltip .tt-val { color: var(--text-bright); font-family: 'SF Mono', monospace; }
+
+/* Region Summary */
+table.region-table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 13px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+table.region-table th {
+  background: var(--bg-tertiary);
+  color: var(--text-muted);
+  padding: 8px 12px;
+  text-align: left;
+  font-weight: 600;
+  font-size: 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+table.region-table td {
+  padding: 6px 12px;
+  border-bottom: 1px solid rgba(48,54,61,0.4);
+  vertical-align: top;
+}
+
+table.region-table tr:hover td {
+  background: rgba(88,166,255,0.04);
+}
+
+table.region-table .rt-region {
+  font-weight: 500;
+  color: var(--text-bright);
+  white-space: nowrap;
+}
+
+table.region-table .rt-addr {
+  font-family: 'SF Mono', monospace;
+  color: var(--text-muted);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+table.region-table .rt-size {
+  color: var(--text-muted);
+  font-size: 12px;
+  text-align: right;
+  white-space: nowrap;
+}
+
+table.region-table .rt-content {
+  font-family: 'SF Mono', monospace;
+  font-size: 12px;
+}
+
+table.region-table .rt-diff {
+  background: rgba(248,81,73,0.1);
+}
+
+.region-badge {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+  margin-right: 6px;
+  vertical-align: middle;
+}
+
+/* Odometer Detail */
+.odo-file-section {
+  margin-bottom: 28px;
+}
+
+.odo-file-section h3 {
+  font-size: 14px;
+  color: var(--text-bright);
+  margin-bottom: 10px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--border);
+}
+
+table.odo-table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 13px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+  margin-bottom: 12px;
+}
+
+table.odo-table th {
+  background: var(--bg-tertiary);
+  color: var(--text-muted);
+  padding: 6px 12px;
+  text-align: left;
+  font-weight: 600;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  border-bottom: 1px solid var(--border);
+}
+
+table.odo-table td {
+  padding: 5px 12px;
+  border-bottom: 1px solid rgba(48,54,61,0.4);
+  font-family: 'SF Mono', monospace;
+  font-size: 12px;
+}
+
+table.odo-table tr.odo-valid td { color: var(--green); }
+table.odo-table tr.odo-invalid td { color: var(--red); }
+table.odo-table tr.odo-active td {
+  color: var(--blue);
+  font-weight: 600;
+  background: rgba(88,166,255,0.06);
+}
+
+.odo-summary {
+  font-size: 13px;
+  color: var(--text-muted);
+  margin-bottom: 8px;
+}
+
+.odo-summary strong { color: var(--text-bright); }
+
+/* Region color palette */
+.rc-0  { color: #79c0ff; } /* Vehicle Config Header */
+.rc-1  { color: #a5d6ff; } /* Static Configuration */
+.rc-2  { color: #7ee787; } /* Operational Counters */
+.rc-3  { color: #484f58; } /* Zero-Padded Region */
+.rc-4  { color: #d2a8ff; } /* Extended Data */
+.rc-5  { color: #484f58; } /* Padding */
+.rc-6  { color: #ffa657; } /* Boundary Markers */
+.rc-7  { color: #484f58; } /* Zero Block */
+.rc-8  { color: #484f58; } /* FF/00 Marker Block */
+.rc-9  { color: #f0883e; } /* Fuel/Sensor Calibration */
+.rc-10 { color: #484f58; } /* FF Block */
+.rc-11 { color: #ff7b72; } /* DTC / Diagnostic Codes */
+.rc-12 { color: #484f58; } /* FF Boundary */
+.rc-13 { color: #3fb950; } /* Odometer Block */
+.rc-14 { color: #58a6ff; } /* Gauge Calibration / Trip */
+.rc-15 { color: #79c0ff; } /* Running Counters */
+.rc-16 { color: #d29922; } /* Status / Flags */
+.rc-17 { color: #bc8cff; } /* System Configuration */
+.rc-18 { color: #d2a8ff; } /* Extended Config */
+.rc-19 { color: #f0883e; } /* Sensor Calibration Tables */
+.rc-20 { color: #ffa657; } /* Calibration / Flags */
+.rc-21 { color: #39d2c0; } /* Service / Maintenance */
+.rc-22 { color: #8b949e; } /* Extended Data 2 */
+.rc-23 { color: #484f58; } /* Unused / Reserved */
+.rc-24 { color: #f778ba; } /* Part Number / Serial */
+.rc-25 { color: #484f58; } /* Reserved 2 */
+.rc-26 { color: #d29922; } /* Tail Status */
+.rc-27 { color: #484f58; } /* FF Padding */
+.rc-28 { color: #8b949e; } /* Config Footer */
+.rc-29 { color: #484f58; } /* FF Terminator */
+
+.region-dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  margin-right: 5px;
+}
+
+/* scrollbar */
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb { background: var(--bg-tertiary); border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: #484f58; }
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>Honda 93C76 EEPROM Inspector</h1>
+    <div class="subtitle">1024-byte EEPROM analysis and comparison tool for Honda Civic dashboards</div>
+  </div>
+</header>
+
+<div class="container">
+  <!-- Drop Zone -->
+  <div class="drop-zone" id="dropZone">
+    <h3>Drop .bin files here or click to browse</h3>
+    <p>Accepts up to 8 files, 1024 bytes each (93C76 dumps, raw or byte-swapped)</p>
+    <input type="file" id="fileInput" multiple accept=".bin">
+  </div>
+
+  <!-- File Cards -->
+  <div class="file-cards" id="fileCards"></div>
+
+  <!-- Tabs -->
+  <div id="mainUI" style="display:none;">
+    <div class="tab-bar">
+      <button class="tab-btn active" data-tab="hexView">Hex View</button>
+      <button class="tab-btn" data-tab="regionSummary">Region Summary</button>
+      <button class="tab-btn" data-tab="odoDetail">Odometer Detail</button>
+    </div>
+
+    <div class="tab-content active" id="hexView">
+      <div class="hex-controls">
+        <label id="diffOnlyLabel" style="display:none;">
+          <input type="checkbox" id="diffOnly"> Show only differences
+        </label>
+      </div>
+      <div class="hex-table-wrapper" id="hexTableWrapper" style="max-height: 80vh; overflow-y: auto;"></div>
+    </div>
+
+    <div class="tab-content" id="regionSummary">
+      <div id="regionTableWrapper"></div>
+    </div>
+
+    <div class="tab-content" id="odoDetail">
+      <div id="odoContent"></div>
+    </div>
+  </div>
+
+  <div class="empty-state" id="emptyState">
+    Load one or more .bin files to begin analysis.
+  </div>
+</div>
+
+<div class="tooltip" id="tooltip"></div>
+
+<script>
+// ─── Constants ──────────────────────────────────────────────────────────────
+const FILE_COLORS = ['#58a6ff','#3fb950','#f0883e','#bc8cff','#f778ba','#39d2c0','#d29922','#ff7b72'];
+const EEPROM_SIZE = 1024;
+
+const REGIONS = [
+  { start: 0x000, end: 0x04F, name: 'Vehicle Config Header', idx: 0 },
+  { start: 0x050, end: 0x05F, name: 'Static Configuration', idx: 1 },
+  { start: 0x060, end: 0x095, name: 'Operational Counters', idx: 2 },
+  { start: 0x096, end: 0x0AB, name: 'Zero-Padded Region', idx: 3 },
+  { start: 0x0AC, end: 0x0E5, name: 'Extended Data (Diesel: DPF/EGR)', idx: 4 },
+  { start: 0x0E6, end: 0x0EF, name: 'Padding (0xFF)', idx: 5 },
+  { start: 0x0F0, end: 0x10F, name: 'Boundary Markers', idx: 6 },
+  { start: 0x110, end: 0x11F, name: 'Zero Block', idx: 7 },
+  { start: 0x120, end: 0x12F, name: 'FF/00 Marker Block', idx: 8 },
+  { start: 0x130, end: 0x13F, name: 'Fuel/Sensor Calibration', idx: 9 },
+  { start: 0x140, end: 0x14F, name: 'FF Block', idx: 10 },
+  { start: 0x150, end: 0x177, name: 'DTC / Diagnostic Codes', idx: 11 },
+  { start: 0x178, end: 0x17F, name: 'FF Boundary', idx: 12 },
+  { start: 0x180, end: 0x1BF, name: 'Odometer Block', idx: 13 },
+  { start: 0x1C0, end: 0x1E7, name: 'Gauge Calibration / Trip', idx: 14 },
+  { start: 0x1E8, end: 0x1F3, name: 'Running Counters', idx: 15 },
+  { start: 0x1F4, end: 0x1FF, name: 'Status / Flags', idx: 16 },
+  { start: 0x200, end: 0x20F, name: 'System Configuration', idx: 17 },
+  { start: 0x210, end: 0x24F, name: 'Extended Config', idx: 18 },
+  { start: 0x250, end: 0x27F, name: 'Sensor Calibration Tables', idx: 19 },
+  { start: 0x280, end: 0x29F, name: 'Calibration / Flags', idx: 20 },
+  { start: 0x2A0, end: 0x2BF, name: 'Service / Maintenance', idx: 21 },
+  { start: 0x2C0, end: 0x30F, name: 'Extended Data', idx: 22 },
+  { start: 0x310, end: 0x385, name: 'Unused / Reserved', idx: 23 },
+  { start: 0x386, end: 0x399, name: 'Part Number / Serial', idx: 24 },
+  { start: 0x39A, end: 0x3E9, name: 'Reserved', idx: 25 },
+  { start: 0x3EA, end: 0x3EB, name: 'Tail Status Value', idx: 26 },
+  { start: 0x3EC, end: 0x3F1, name: 'FF Padding', idx: 27 },
+  { start: 0x3F2, end: 0x3FB, name: 'Config Footer', idx: 28 },
+  { start: 0x3FC, end: 0x3FF, name: 'FF Terminator', idx: 29 },
+];
+
+const REGION_DOT_COLORS = [
+  '#79c0ff','#a5d6ff','#7ee787','#484f58','#d2a8ff','#484f58','#ffa657','#484f58',
+  '#484f58','#f0883e','#484f58','#ff7b72','#484f58','#3fb950','#58a6ff','#79c0ff',
+  '#d29922','#bc8cff','#d2a8ff','#f0883e','#ffa657','#39d2c0','#8b949e','#484f58',
+  '#f778ba','#484f58','#d29922','#484f58','#8b949e','#484f58'
+];
+
+// ─── State ──────────────────────────────────────────────────────────────────
+let files = []; // { name, raw, native, color }
+
+// ─── Byte-swap: raw programmer order → native EEPROM order ─────────────────
+function byteSwap(raw) {
+  const native = new Uint8Array(raw.length);
+  for (let i = 0; i < raw.length - 1; i += 2) {
+    native[i] = raw[i + 1];
+    native[i + 1] = raw[i];
+  }
+  if (raw.length % 2 === 1) native[raw.length - 1] = raw[raw.length - 1];
+  return native;
+}
+
+// ─── Detect variant from native header ─────────────────────────────────────
+function detectVariant(native) {
+  if (native[0] === 0x65 && native[1] === 0xBA) return 'diesel';
+  if (native[0] === 0xFF && native[1] === 0x77) return 'petrol';
+  return 'unknown';
+}
+
+// ─── Read ASCII string from native bytes ───────────────────────────────────
+function readAscii(native, start, end) {
+  let s = '';
+  for (let i = start; i <= end; i++) {
+    const c = native[i];
+    s += (c >= 0x20 && c <= 0x7E) ? String.fromCharCode(c) : '.';
+  }
+  return s;
+}
+
+// ─── Odometer parsing ──────────────────────────────────────────────────────
+function parseOdometer(native, variant) {
+  const multiplier = variant === 'petrol' ? 32 : 31;
+  const slots = [];
+  let maxKm = 0;
+  let activeIdx = -1;
+
+  for (let i = 0; i < 16; i++) {
+    const base = 0x180 + i * 4;
+    const hi = native[base];
+    const lo = native[base + 1];
+    const chi = native[base + 2];
+    const clo = native[base + 3];
+    const word = (hi << 8) | lo;
+    const comp = (chi << 8) | clo;
+    const valid = (word ^ comp) === 0xFFFF;
+    const km = word * multiplier;
+    slots.push({ idx: i, base, hi, lo, chi, clo, word, comp, valid, km });
+    if (valid && km >= maxKm) {
+      maxKm = km;
+      activeIdx = i;
+    }
+  }
+
+  return { slots, activeIdx, maxKm, validCount: slots.filter(s => s.valid).length };
+}
+
+// ─── Region for address ────────────────────────────────────────────────────
+function regionForAddr(addr) {
+  for (const r of REGIONS) {
+    if (addr >= r.start && addr <= r.end) return r;
+  }
+  return null;
+}
+
+// ─── Smart region summary ──────────────────────────────────────────────────
+function regionSummary(native, region, variant) {
+  const start = region.start;
+  const end = region.end;
+  const len = end - start + 1;
+  const slice = native.slice(start, end + 1);
+
+  // Check all-zero / all-FF
+  const allZero = slice.every(b => b === 0x00);
+  const allFF = slice.every(b => b === 0xFF);
+
+  switch (region.name) {
+    case 'Vehicle Config Header': {
+      const h0 = native[0], h1 = native[1];
+      if (h0 === 0x65 && h1 === 0xBA) return 'Diesel (65BA)';
+      if (h0 === 0xFF && h1 === 0x77) return 'Petrol (FF77)';
+      return `Unknown (${hex2(h0)}${hex2(h1)})`;
+    }
+    case 'Odometer Block': {
+      const odo = parseOdometer(native, variant);
+      return `${odo.maxKm.toLocaleString()} km (${odo.validCount}/16 valid)`;
+    }
+    case 'Part Number / Serial': {
+      const part = readAscii(native, 0x386, 0x38D).trim();
+      const board = readAscii(native, 0x390, 0x395).trim();
+      let s = '';
+      if (part) s += part;
+      if (board) s += (s ? ' / ' : '') + board;
+      return s || 'empty';
+    }
+    case 'Config Footer': {
+      return hexSlice(native, start, end);
+    }
+    case 'Status / Flags': {
+      return hexSlice(native, start, end);
+    }
+    case 'Tail Status Value': {
+      return hexSlice(native, start, end);
+    }
+    case 'Boundary Markers': {
+      if (allFF) return 'ERASED (all FF)';
+      if (allZero) return 'all 00';
+      return 'OK';
+    }
+    default: {
+      if (allZero) return 'all 00';
+      if (allFF) return 'all FF';
+      return 'has data';
+    }
+  }
+}
+
+function hexSlice(native, start, end) {
+  let s = '';
+  for (let i = start; i <= end; i++) {
+    if (s) s += ' ';
+    s += hex2(native[i]);
+  }
+  return s;
+}
+
+function hex2(b) { return b.toString(16).toUpperCase().padStart(2, '0'); }
+function hex3(n) { return n.toString(16).toUpperCase().padStart(3, '0'); }
+
+// ─── File loading ───────────────────────────────────────────────────────────
+function addFile(name, arrayBuffer) {
+  if (files.length >= 8) return;
+  if (arrayBuffer.byteLength !== EEPROM_SIZE) {
+    alert(`${name}: Expected ${EEPROM_SIZE} bytes, got ${arrayBuffer.byteLength}`);
+    return;
+  }
+  // Check for duplicate name
+  if (files.some(f => f.name === name)) {
+    name = name.replace(/\.bin$/i, '') + '_' + (files.length + 1) + '.bin';
+  }
+  const raw = new Uint8Array(arrayBuffer);
+  const native = byteSwap(raw);
+  const color = FILE_COLORS[files.length % FILE_COLORS.length];
+  const variant = detectVariant(native);
+  files.push({ name, raw, native, color, variant });
+  render();
+}
+
+function removeFile(idx) {
+  files.splice(idx, 1);
+  // Reassign colors
+  files.forEach((f, i) => f.color = FILE_COLORS[i % FILE_COLORS.length]);
+  render();
+}
+
+// ─── Render everything ─────────────────────────────────────────────────────
+function render() {
+  renderFileCards();
+  const hasFiles = files.length > 0;
+  document.getElementById('mainUI').style.display = hasFiles ? '' : 'none';
+  document.getElementById('emptyState').style.display = hasFiles ? 'none' : '';
+  document.getElementById('diffOnlyLabel').style.display = files.length > 1 ? '' : 'none';
+  if (hasFiles) {
+    renderHexView();
+    renderRegionSummary();
+    renderOdoDetail();
+  }
+}
+
+function renderFileCards() {
+  const container = document.getElementById('fileCards');
+  container.innerHTML = '';
+  files.forEach((f, i) => {
+    const odo = parseOdometer(f.native, f.variant);
+    const board = readAscii(f.native, 0x390, 0x395).trim();
+    const card = document.createElement('div');
+    card.className = 'file-card';
+    card.style.borderLeftColor = f.color;
+    card.innerHTML = `
+      <div class="fc-name">${esc(f.name)}</div>
+      <div class="fc-detail">
+        Variant: <span>${f.variant}</span><br>
+        Board: <span class="mono">${esc(board) || '—'}</span><br>
+        Odometer: <span>${odo.maxKm.toLocaleString()} km</span>
+      </div>
+      <button class="fc-remove" title="Remove file">&times;</button>
+    `;
+    card.querySelector('.fc-remove').onclick = () => removeFile(i);
+    container.appendChild(card);
+  });
+}
+
+// ─── Hex View ───────────────────────────────────────────────────────────────
+function renderHexView() {
+  const diffOnly = document.getElementById('diffOnly').checked;
+  const comparing = files.length > 1;
+  const wrapper = document.getElementById('hexTableWrapper');
+
+  let html = '<table class="hex-table"><thead><tr>';
+  html += '<th class="hex-offset">Offset</th>';
+  html += '<th class="hex-region">Region</th>';
+
+  if (comparing) {
+    files.forEach((f, i) => {
+      html += `<th class="hex-bytes ${i > 0 ? 'hex-file-sep' : ''}" style="color:${f.color}">${esc(f.name)}</th>`;
+      html += `<th class="hex-ascii">ASCII</th>`;
+    });
+  } else {
+    html += '<th class="hex-bytes">Hex</th>';
+    html += '<th class="hex-ascii">ASCII</th>';
+  }
+  html += '</tr></thead><tbody>';
+
+  for (let row = 0; row < EEPROM_SIZE; row += 16) {
+    const addr = row;
+
+    // Determine if row has diffs
+    let rowHasDiff = false;
+    if (comparing) {
+      for (let col = 0; col < 16 && addr + col < EEPROM_SIZE; col++) {
+        const refVal = files[0].native[addr + col];
+        for (let fi = 1; fi < files.length; fi++) {
+          if (files[fi].native[addr + col] !== refVal) { rowHasDiff = true; break; }
+        }
+        if (rowHasDiff) break;
+      }
+    }
+
+    if (diffOnly && comparing && !rowHasDiff) continue;
+
+    // Region label: show on first row of each region
+    const region = regionForAddr(addr);
+    let regionLabel = '';
+    let regionClass = '';
+    if (region && region.start >= addr && region.start < addr + 16) {
+      regionLabel = region.name;
+      regionClass = `rc-${region.idx}`;
+    }
+
+    html += '<tr>';
+    html += `<td class="hex-offset">${hex3(addr)}</td>`;
+    html += `<td class="hex-region ${regionClass}">${esc(regionLabel)}</td>`;
+
+    if (comparing) {
+      files.forEach((f, fi) => {
+        let hexCells = '';
+        let asciiCells = '';
+        for (let col = 0; col < 16; col++) {
+          const a = addr + col;
+          if (a >= EEPROM_SIZE) { hexCells += '<span class="hb">  </span>'; asciiCells += ' '; continue; }
+          const val = f.native[a];
+          let isDiff = false;
+          for (let fj = 0; fj < files.length; fj++) {
+            if (fj !== fi && files[fj].native[a] !== val) { isDiff = true; break; }
+          }
+          const cls = isDiff ? 'diff' : (val === 0 ? 'zero' : (val === 0xFF ? 'ff' : ''));
+          const r = regionForAddr(a);
+          hexCells += `<span class="hb ${cls}" data-addr="${a}" data-fi="${fi}">${hex2(val)}</span>`;
+          const ch = (val >= 0x20 && val <= 0x7E) ? String.fromCharCode(val) : '.';
+          asciiCells += `<span class="ac ${isDiff ? 'diff' : ''}">${esc(ch)}</span>`;
+        }
+        html += `<td class="hex-bytes ${fi > 0 ? 'hex-file-sep' : ''}">${hexCells}</td>`;
+        html += `<td class="hex-ascii">${asciiCells}</td>`;
+      });
+    } else {
+      const f = files[0];
+      let hexCells = '';
+      let asciiCells = '';
+      for (let col = 0; col < 16; col++) {
+        const a = addr + col;
+        if (a >= EEPROM_SIZE) { hexCells += '<span class="hb">  </span>'; asciiCells += ' '; continue; }
+        const val = f.native[a];
+        const cls = val === 0 ? 'zero' : (val === 0xFF ? 'ff' : '');
+        hexCells += `<span class="hb ${cls}" data-addr="${a}" data-fi="0">${hex2(val)}</span>`;
+        const ch = (val >= 0x20 && val <= 0x7E) ? String.fromCharCode(val) : '.';
+        asciiCells += `<span class="ac">${esc(ch)}</span>`;
+      }
+      html += `<td class="hex-bytes">${hexCells}</td>`;
+      html += `<td class="hex-ascii">${asciiCells}</td>`;
+    }
+
+    html += '</tr>';
+  }
+
+  html += '</tbody></table>';
+  wrapper.innerHTML = html;
+}
+
+// ─── Region Summary ─────────────────────────────────────────────────────────
+function renderRegionSummary() {
+  const wrapper = document.getElementById('regionTableWrapper');
+  const comparing = files.length > 1;
+
+  let html = '<table class="region-table"><thead><tr>';
+  html += '<th>Region</th><th>Address</th><th>Size</th>';
+  files.forEach(f => {
+    html += `<th style="color:${f.color}">${esc(f.name)}</th>`;
+  });
+  html += '</tr></thead><tbody>';
+
+  for (const region of REGIONS) {
+    const size = region.end - region.start + 1;
+    html += '<tr>';
+    html += `<td class="rt-region"><span class="region-dot" style="background:${REGION_DOT_COLORS[region.idx]}"></span>${esc(region.name)}</td>`;
+    html += `<td class="rt-addr">${hex3(region.start)}–${hex3(region.end)}</td>`;
+    html += `<td class="rt-size">${size}B</td>`;
+
+    const summaries = files.map(f => regionSummary(f.native, region, f.variant));
+
+    files.forEach((f, fi) => {
+      const isDiff = comparing && fi > 0 && summaries[fi] !== summaries[0];
+      html += `<td class="rt-content mono ${isDiff ? 'rt-diff' : ''}">${esc(summaries[fi])}</td>`;
+    });
+
+    html += '</tr>';
+  }
+
+  html += '</tbody></table>';
+  wrapper.innerHTML = html;
+}
+
+// ─── Odometer Detail ────────────────────────────────────────────────────────
+function renderOdoDetail() {
+  const container = document.getElementById('odoContent');
+  let html = '';
+
+  files.forEach((f, fi) => {
+    const odo = parseOdometer(f.native, f.variant);
+    html += `<div class="odo-file-section">`;
+    html += `<h3 style="border-left: 3px solid ${f.color}; padding-left: 10px;">${esc(f.name)} <span style="font-weight:400;color:var(--text-muted);font-size:12px;">${f.variant} | multiplier: ${f.variant === 'petrol' ? 32 : 31}</span></h3>`;
+    html += `<div class="odo-summary">Current reading: <strong>${odo.maxKm.toLocaleString()} km</strong> | Valid slots: <strong>${odo.validCount}/16</strong> | Active slot: <strong>#${odo.activeIdx >= 0 ? odo.activeIdx : '—'}</strong></div>`;
+    html += '<table class="odo-table"><thead><tr>';
+    html += '<th>Slot</th><th>Addr</th><th>Native Bytes</th><th>BE16</th><th>Complement</th><th>XOR</th><th>km</th><th>Status</th>';
+    html += '</tr></thead><tbody>';
+
+    for (const s of odo.slots) {
+      const isActive = s.idx === odo.activeIdx;
+      const cls = isActive ? 'odo-active' : (s.valid ? 'odo-valid' : 'odo-invalid');
+      const xorVal = s.word ^ s.comp;
+      html += `<tr class="${cls}">`;
+      html += `<td>${s.idx}</td>`;
+      html += `<td>${hex3(s.base)}</td>`;
+      html += `<td>${hex2(s.hi)} ${hex2(s.lo)} ${hex2(s.chi)} ${hex2(s.clo)}</td>`;
+      html += `<td>${hex2(s.hi)}${hex2(s.lo)} (${s.word})</td>`;
+      html += `<td>${hex2(s.chi)}${hex2(s.clo)} (${s.comp})</td>`;
+      html += `<td>${hex2(xorVal >> 8)}${hex2(xorVal & 0xFF)}</td>`;
+      html += `<td>${s.valid ? s.km.toLocaleString() : '—'}</td>`;
+      html += `<td>${isActive ? 'ACTIVE' : (s.valid ? 'Valid' : 'INVALID')}</td>`;
+      html += '</tr>';
+    }
+
+    html += '</tbody></table></div>';
+  });
+
+  container.innerHTML = html || '<div class="empty-state">No files loaded.</div>';
+}
+
+// ─── Tooltip ────────────────────────────────────────────────────────────────
+const tooltip = document.getElementById('tooltip');
+let tooltipTarget = null;
+
+document.addEventListener('mouseover', e => {
+  const hb = e.target.closest('.hb[data-addr]');
+  if (!hb) { tooltip.style.display = 'none'; tooltipTarget = null; return; }
+  tooltipTarget = hb;
+  const addr = parseInt(hb.dataset.addr);
+  const fi = parseInt(hb.dataset.fi);
+  const f = files[fi];
+  if (!f) return;
+  const val = f.native[addr];
+  const region = regionForAddr(addr);
+
+  tooltip.innerHTML =
+    `<span class="tt-label">Address:</span> <span class="tt-val">0x${hex3(addr)}</span> (${addr})<br>` +
+    `<span class="tt-label">Value:</span> <span class="tt-val">0x${hex2(val)}</span> (${val})<br>` +
+    `<span class="tt-label">Region:</span> ${region ? esc(region.name) : '—'}<br>` +
+    `<span class="tt-label">File:</span> ${esc(f.name)}`;
+
+  tooltip.style.display = 'block';
+  positionTooltip(e);
+});
+
+document.addEventListener('mousemove', e => {
+  if (tooltipTarget) positionTooltip(e);
+});
+
+document.addEventListener('mouseout', e => {
+  if (e.target === tooltipTarget) { tooltip.style.display = 'none'; tooltipTarget = null; }
+});
+
+function positionTooltip(e) {
+  let x = e.clientX + 12, y = e.clientY + 12;
+  const tw = tooltip.offsetWidth, th = tooltip.offsetHeight;
+  if (x + tw > window.innerWidth - 8) x = e.clientX - tw - 8;
+  if (y + th > window.innerHeight - 8) y = e.clientY - th - 8;
+  tooltip.style.left = x + 'px';
+  tooltip.style.top = y + 'px';
+}
+
+// ─── Tab switching ──────────────────────────────────────────────────────────
+document.querySelectorAll('.tab-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById(btn.dataset.tab).classList.add('active');
+  });
+});
+
+// ─── Diff-only checkbox ─────────────────────────────────────────────────────
+document.getElementById('diffOnly').addEventListener('change', renderHexView);
+
+// ─── Drag and drop / file input ─────────────────────────────────────────────
+const dropZone = document.getElementById('dropZone');
+const fileInput = document.getElementById('fileInput');
+
+dropZone.addEventListener('click', () => fileInput.click());
+dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('dragover'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+dropZone.addEventListener('drop', e => {
+  e.preventDefault();
+  dropZone.classList.remove('dragover');
+  handleFiles(e.dataTransfer.files);
+});
+fileInput.addEventListener('change', e => handleFiles(e.target.files));
+
+function handleFiles(fileList) {
+  for (const file of fileList) {
+    if (files.length >= 8) break;
+    const reader = new FileReader();
+    reader.onload = () => addFile(file.name, reader.result);
+    reader.readAsArrayBuffer(file);
+  }
+  fileInput.value = '';
+}
+
+// ─── HTML escape ────────────────────────────────────────────────────────────
+function esc(s) {
+  const d = document.createElement('div');
+  d.textContent = s;
+  return d.innerHTML;
+}
+</script>
+</body>
+</html>

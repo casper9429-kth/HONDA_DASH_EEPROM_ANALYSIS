@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Honda 93C76 Mileage Editor</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#111;color:#ccc;font-family:-apple-system,system-ui,sans-serif;padding:20px;max-width:600px;margin:0 auto}
+h1{font-size:1.2em;color:#888;margin-bottom:20px;font-weight:400}
+#drop{border:2px dashed #444;border-radius:12px;padding:60px 20px;text-align:center;cursor:pointer;transition:border-color .2s;margin-bottom:20px}
+#drop:hover,#drop.over{border-color:#4a4}
+#drop p{color:#666;font-size:1.1em}
+#drop .hint{font-size:.8em;color:#444;margin-top:8px}
+input[type=file]{display:none}
+#info{display:none}
+.label{color:#666;font-size:.85em;margin-bottom:2px}
+.filename{color:#aaa;font-size:.95em;margin-bottom:12px;word-break:break-all}
+.variant{color:#aaa;font-size:1em;margin-bottom:16px}
+.variant span{color:#4a4;font-weight:600}
+.km-display{font-size:3em;color:#4a4;font-weight:700;margin-bottom:4px;line-height:1.1}
+.slot-health{color:#888;font-size:.85em;margin-bottom:24px}
+.slot-health.warn{color:#a84}
+hr{border:none;border-top:1px solid #222;margin:20px 0}
+.input-group{margin-bottom:8px}
+.input-group label{display:block;color:#888;font-size:.9em;margin-bottom:6px}
+.input-group input{width:100%;padding:10px 12px;background:#1a1a1a;border:1px solid #333;border-radius:6px;color:#eee;font-size:1.1em}
+.input-group input:focus{outline:none;border-color:#4a4}
+.calc{font-family:'SF Mono',Consolas,monospace;font-size:.8em;color:#666;margin-bottom:6px;min-height:2.4em}
+.calc span{color:#888}
+.result-km{color:#4a4;font-size:1.1em;margin-bottom:20px;min-height:1.4em}
+button{width:100%;padding:12px;background:#1a3a1a;color:#4a4;border:1px solid #2a5a2a;border-radius:8px;font-size:1em;cursor:pointer;transition:background .2s}
+button:hover:not(:disabled){background:#2a4a2a}
+button:disabled{opacity:.4;cursor:default}
+</style>
+</head>
+<body>
+<h1>Honda 93C76 Mileage Editor</h1>
+
+<div id="drop" onclick="fileIn.click()">
+  <p>Drop .bin file here</p>
+  <div class="hint">or click to browse (1024 bytes)</div>
+</div>
+<input type="file" id="fileIn" accept=".bin">
+
+<div id="info">
+  <div class="label">File</div>
+  <div class="filename" id="fname"></div>
+  <div class="variant">Variant: <span id="variant"></span></div>
+  <div class="km-display" id="kmDisplay"></div>
+  <div class="slot-health" id="slotHealth"></div>
+  <hr>
+  <div class="input-group">
+    <label for="newKm">New mileage (km)</label>
+    <input type="number" id="newKm" min="0" placeholder="e.g. 150000">
+  </div>
+  <div class="calc" id="calcInfo"></div>
+  <div class="result-km" id="resultKm"></div>
+  <button id="exportBtn" disabled onclick="doExport()">Download modified .bin</button>
+</div>
+
+<script>
+let rawBytes=null,fileName='',isDiesel=false,multiplier=32;
+const $=id=>document.getElementById(id);
+const drop=$('drop'),fileIn=$('fileIn');
+
+drop.addEventListener('dragover',e=>{e.preventDefault();drop.classList.add('over')});
+drop.addEventListener('dragleave',()=>drop.classList.remove('over'));
+drop.addEventListener('drop',e=>{e.preventDefault();drop.classList.remove('over');if(e.dataTransfer.files[0])loadFile(e.dataTransfer.files[0])});
+fileIn.addEventListener('change',()=>{if(fileIn.files[0])loadFile(fileIn.files[0])});
+
+function swap(raw){
+  const n=new Uint8Array(raw.length);
+  for(let i=0;i<raw.length;i+=2){n[i]=raw[i+1];n[i+1]=raw[i]}
+  return n;
+}
+
+function loadFile(f){
+  fileName=f.name;
+  const r=new FileReader();
+  r.onload=()=>{
+    rawBytes=new Uint8Array(r.result);
+    if(rawBytes.length!==1024){alert('Expected 1024 bytes, got '+rawBytes.length);return}
+    parse();
+  };
+  r.readAsArrayBuffer(f);
+}
+
+function parse(){
+  const nat=swap(rawBytes);
+  // detect variant
+  if(nat[0]===0x65&&nat[1]===0xBA){isDiesel=true;multiplier=31}
+  else if(nat[0]===0xFF&&nat[1]===0x77){isDiesel=false;multiplier=32}
+  else{isDiesel=false;multiplier=32} // default petrol
+
+  // read slots
+  let valid=0,bestBE=0;
+  for(let s=0;s<16;s++){
+    const base=0x180+s*4;
+    const hi=nat[base],lo=nat[base+1],nhi=nat[base+2],nlo=nat[base+3];
+    const be=(hi<<8)|lo, cbe=(nhi<<8)|nlo;
+    if((be^cbe)===0xFFFF){valid++;bestBE=Math.max(bestBE,be)}
+  }
+  const km=bestBE*multiplier;
+
+  $('fname').textContent=fileName;
+  $('variant').textContent=isDiesel?'Diesel (x31)':'Petrol (x32)';
+  $('kmDisplay').textContent=km.toLocaleString()+' km';
+  $('slotHealth').textContent=valid+'/16 valid slots';
+  $('slotHealth').className='slot-health'+(valid<16?' warn':'');
+
+  drop.style.display='none';
+  $('info').style.display='block';
+  $('newKm').value='';
+  $('calcInfo').textContent='';
+  $('resultKm').textContent='';
+  $('exportBtn').disabled=true;
+}
+
+$('newKm').addEventListener('input',()=>{
+  const v=parseInt($('newKm').value);
+  if(isNaN(v)||v<0){$('calcInfo').textContent='';$('resultKm').textContent='';$('exportBtn').disabled=true;return}
+  const be=Math.round(v/multiplier);
+  if(be>0xFFFF){$('calcInfo').innerHTML='<span style="color:#a44">Value too large (max '+(0xFFFF*multiplier).toLocaleString()+' km)</span>';$('resultKm').textContent='';$('exportBtn').disabled=true;return}
+  const hi=(be>>8)&0xFF,lo=be&0xFF,nhi=(~hi)&0xFF,nlo=(~lo)&0xFF;
+  const actualKm=be*multiplier;
+  const h=n=>'0x'+n.toString(16).toUpperCase().padStart(2,'0');
+  $('calcInfo').innerHTML='BE16=<span>'+h(hi)+' '+h(lo)+'</span>  ~=<span>'+h(nhi)+' '+h(nlo)+'</span>  (raw '+be+')';
+  $('resultKm').textContent='Actual: '+actualKm.toLocaleString()+' km';
+  $('exportBtn').disabled=false;
+});
+
+function doExport(){
+  const v=parseInt($('newKm').value);
+  const be=Math.round(v/multiplier);
+  const hi=(be>>8)&0xFF,lo=be&0xFF,nhi=(~hi)&0xFF,nlo=(~lo)&0xFF;
+
+  // work in native order
+  const nat=swap(rawBytes);
+  for(let s=0;s<16;s++){
+    const base=0x180+s*4;
+    nat[base]=hi;nat[base+1]=lo;nat[base+2]=nhi;nat[base+3]=nlo;
+  }
+  // swap back to raw
+  const out=swap(nat);
+  const actualKm=be*multiplier;
+  const outName=fileName.replace(/\.bin$/i,'')+'_MODIFIED_'+actualKm+'km.bin';
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([out],{type:'application/octet-stream'}));
+  a.download=outName;a.click();URL.revokeObjectURL(a.href);
+}
+</script>
+</body>
+</html>

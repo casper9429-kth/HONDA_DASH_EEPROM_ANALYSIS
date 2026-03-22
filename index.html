@@ -1,0 +1,722 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Honda Civic 93C76 EEPROM Tools</title>
+<meta name="description" content="Open-source tools for reading, analyzing, and repairing Honda Civic 8th gen (2006-2012) instrument cluster EEPROMs.">
+<style>
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+:root {
+  --bg: #0a0a0f;
+  --bg-raised: #12121a;
+  --bg-card: #16161f;
+  --bg-card-hover: #1c1c28;
+  --border: #2a2a3a;
+  --border-light: #35354a;
+  --text: #e0e0e8;
+  --text-muted: #8888a0;
+  --text-dim: #5c5c74;
+  --accent: #D4A017;
+  --accent-dim: rgba(212, 160, 23, 0.15);
+  --accent-glow: rgba(212, 160, 23, 0.08);
+  --mono: "SF Mono", "Cascadia Mono", "Fira Code", "JetBrains Mono", Menlo, Consolas, monospace;
+  --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  font-family: var(--sans);
+  background-color: var(--bg);
+  color: var(--text);
+  line-height: 1.6;
+  min-height: 100vh;
+  position: relative;
+}
+
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image: radial-gradient(circle, var(--text-dim) 0.5px, transparent 0.5px);
+  background-size: 32px 32px;
+  opacity: 0.15;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.container {
+  max-width: 1080px;
+  margin: 0 auto;
+  padding: 0 24px;
+  position: relative;
+  z-index: 1;
+}
+
+/* ---- Hero ---- */
+.hero {
+  padding: 80px 0 60px;
+  text-align: center;
+}
+
+.hero h1 {
+  font-size: clamp(1.8rem, 4vw, 2.6rem);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: #fff;
+  margin-bottom: 16px;
+}
+
+.hero h1 span {
+  color: var(--accent);
+}
+
+.hero .subtitle {
+  font-size: clamp(1rem, 2vw, 1.15rem);
+  color: var(--text-muted);
+  max-width: 640px;
+  margin: 0 auto 24px;
+  line-height: 1.7;
+}
+
+.badge {
+  display: inline-block;
+  font-size: 0.8rem;
+  color: var(--text-dim);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 6px 18px;
+  letter-spacing: 0.02em;
+}
+
+/* ---- Section shared ---- */
+.section {
+  padding: 48px 0;
+}
+
+.section-title {
+  font-size: 1.3rem;
+  font-weight: 600;
+  color: #fff;
+  margin-bottom: 8px;
+}
+
+.section-desc {
+  color: var(--text-muted);
+  font-size: 0.95rem;
+  margin-bottom: 32px;
+  max-width: 600px;
+}
+
+/* ---- Tool cards ---- */
+.tools-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 20px;
+}
+
+.tool-card {
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 28px 24px;
+  text-decoration: none;
+  color: inherit;
+  transition: background 0.2s, border-color 0.2s, transform 0.15s;
+  position: relative;
+}
+
+.tool-card:hover {
+  background: var(--bg-card-hover);
+  border-color: var(--border-light);
+  transform: translateY(-2px);
+}
+
+.tool-card:hover .tool-indicator {
+  background: var(--accent-dim);
+  border-color: var(--accent);
+}
+
+.tool-indicator {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  border: 1px solid var(--border-light);
+  background: var(--bg-raised);
+  margin-bottom: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.2s, border-color 0.2s;
+}
+
+.tool-indicator svg {
+  width: 20px;
+  height: 20px;
+  stroke: var(--text-muted);
+  fill: none;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.tool-card:hover .tool-indicator svg {
+  stroke: var(--accent);
+}
+
+.tool-card h3 {
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: #fff;
+  margin-bottom: 8px;
+}
+
+.tool-card p {
+  font-size: 0.88rem;
+  color: var(--text-muted);
+  line-height: 1.6;
+  flex-grow: 1;
+}
+
+.tool-card .arrow {
+  margin-top: 18px;
+  font-size: 0.82rem;
+  color: var(--text-dim);
+  transition: color 0.2s;
+}
+
+.tool-card:hover .arrow {
+  color: var(--accent);
+}
+
+.alpha-badge {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--accent);
+  background: var(--accent-dim);
+  border: 1px solid rgba(212, 160, 23, 0.3);
+  border-radius: 4px;
+  padding: 2px 8px;
+}
+
+/* ---- Docs list ---- */
+.docs-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+}
+
+.doc-link {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 16px 20px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  text-decoration: none;
+  color: inherit;
+  transition: background 0.2s, border-color 0.2s;
+}
+
+.doc-link:hover {
+  background: var(--bg-card-hover);
+  border-color: var(--border-light);
+}
+
+.doc-icon {
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.doc-icon svg {
+  width: 16px;
+  height: 16px;
+  stroke: var(--text-dim);
+  fill: none;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.doc-link:hover .doc-icon {
+  border-color: var(--border-light);
+}
+
+.doc-link:hover .doc-icon svg {
+  stroke: var(--accent);
+}
+
+.doc-info h4 {
+  font-size: 0.92rem;
+  font-weight: 600;
+  color: #fff;
+  margin-bottom: 2px;
+}
+
+.doc-info p {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+/* ---- Dumps section ---- */
+.dumps-content {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 28px 28px 24px;
+}
+
+.dumps-list {
+  list-style: none;
+  margin-bottom: 20px;
+}
+
+.dumps-list li {
+  padding: 6px 0;
+  font-size: 0.92rem;
+  color: var(--text);
+}
+
+.dumps-list li code {
+  font-family: var(--mono);
+  font-size: 0.85rem;
+  color: var(--accent);
+  background: var(--accent-dim);
+  padding: 2px 7px;
+  border-radius: 4px;
+}
+
+.dumps-list li span {
+  color: var(--text-muted);
+  margin-left: 4px;
+}
+
+.dumps-cta {
+  font-size: 0.9rem;
+  color: var(--text-muted);
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+}
+
+.dumps-cta a {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+.dumps-cta a:hover {
+  text-decoration: underline;
+}
+
+.browse-link {
+  display: inline-block;
+  margin-bottom: 16px;
+  font-size: 0.88rem;
+  color: var(--accent);
+  text-decoration: none;
+}
+
+.browse-link:hover {
+  text-decoration: underline;
+}
+
+/* ---- Community ---- */
+.community-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+}
+
+.community-card {
+  display: block;
+  padding: 22px 20px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  text-decoration: none;
+  color: inherit;
+  transition: background 0.2s, border-color 0.2s;
+}
+
+.community-card:hover {
+  background: var(--bg-card-hover);
+  border-color: var(--border-light);
+}
+
+.community-card h4 {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #fff;
+  margin-bottom: 6px;
+}
+
+.community-card p {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  line-height: 1.55;
+}
+
+/* ---- Reference table ---- */
+.ref-section {
+  padding: 48px 0 32px;
+}
+
+.ref-table-wrap {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.ref-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.88rem;
+  font-family: var(--mono);
+}
+
+.ref-table th,
+.ref-table td {
+  text-align: left;
+  padding: 12px 16px;
+  border: 1px solid var(--border);
+}
+
+.ref-table th {
+  background: var(--bg-raised);
+  color: var(--text-muted);
+  font-weight: 600;
+  font-family: var(--sans);
+  font-size: 0.82rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.ref-table td {
+  background: var(--bg-card);
+  color: var(--text);
+}
+
+.ref-table td:first-child {
+  font-family: var(--sans);
+  font-weight: 500;
+  color: var(--text-muted);
+}
+
+.ref-table code {
+  color: var(--accent);
+  font-size: 0.85rem;
+}
+
+.check {
+  color: var(--accent);
+}
+
+/* ---- Footer ---- */
+.footer {
+  padding: 40px 0;
+  text-align: center;
+  border-top: 1px solid var(--border);
+  margin-top: 24px;
+}
+
+.footer p {
+  font-size: 0.85rem;
+  color: var(--text-dim);
+}
+
+.footer a {
+  color: var(--text-muted);
+  text-decoration: none;
+}
+
+.footer a:hover {
+  color: var(--accent);
+}
+
+/* ---- Responsive ---- */
+@media (max-width: 768px) {
+  .hero {
+    padding: 56px 0 40px;
+  }
+
+  .tools-grid {
+    grid-template-columns: 1fr;
+    gap: 14px;
+  }
+
+  .docs-grid {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+
+  .community-grid {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .ref-table {
+    font-size: 0.8rem;
+  }
+
+  .ref-table th,
+  .ref-table td {
+    padding: 10px 12px;
+  }
+}
+
+@media (max-width: 480px) {
+  .container {
+    padding: 0 16px;
+  }
+
+  .hero h1 {
+    font-size: 1.6rem;
+  }
+
+  .dumps-content {
+    padding: 20px 18px;
+  }
+}
+</style>
+</head>
+<body>
+
+<!-- Hero -->
+<div class="container">
+  <section class="hero">
+    <h1>Honda Civic <span>93C76</span> EEPROM Tools</h1>
+    <p class="subtitle">Open-source tools for reading, analyzing, and repairing 8th gen (2006&ndash;2012) instrument cluster EEPROMs</p>
+    <span class="badge">Community-driven &middot; No backend &middot; 100% browser-based</span>
+  </section>
+
+  <!-- Tools -->
+  <section class="section">
+    <h2 class="section-title">Tools</h2>
+    <p class="section-desc">Everything runs in your browser. No data leaves your machine.</p>
+    <div class="tools-grid">
+
+      <a href="tools/mileage.html" class="tool-card">
+        <div class="tool-indicator">
+          <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>
+        </div>
+        <h3>Mileage Editor</h3>
+        <p>Load a .bin dump, see the current mileage, set a new value, export. Simple.</p>
+        <span class="arrow">&rarr; Open tool</span>
+      </a>
+
+      <a href="tools/inspector.html" class="tool-card">
+        <div class="tool-indicator">
+          <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 3v18"/></svg>
+        </div>
+        <h3>Inspector</h3>
+        <p>Inspect one or compare multiple EEPROM dumps. Hex view, region analysis, odometer slot detail.</p>
+        <span class="arrow">&rarr; Open tool</span>
+      </a>
+
+      <a href="tools/repair.html" class="tool-card">
+        <span class="alpha-badge">ALPHA</span>
+        <div class="tool-indicator">
+          <svg viewBox="0 0 24 24"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
+        </div>
+        <h3>Repair Tool</h3>
+        <p>Detect corruption, apply known fixes, toggle feature flags like parking sensors. Alpha &mdash; feedback welcome.</p>
+        <span class="arrow">&rarr; Open tool</span>
+      </a>
+
+    </div>
+  </section>
+
+  <!-- Documentation -->
+  <section class="section">
+    <h2 class="section-title">Documentation</h2>
+    <p class="section-desc">Technical references for the 93C76 EEPROM layout and hardware.</p>
+    <div class="docs-grid">
+
+      <a href="docs/EEPROM_MEMORY_MAP.md" class="doc-link">
+        <div class="doc-icon">
+          <svg viewBox="0 0 24 24"><rect x="4" y="2" width="16" height="20" rx="2"/><path d="M8 6h8M8 10h8M8 14h4"/></svg>
+        </div>
+        <div class="doc-info">
+          <h4>Memory Map</h4>
+          <p>Full 1024-byte reference for all memory regions</p>
+        </div>
+      </a>
+
+      <a href="docs/ODOMETER_GUIDE.md" class="doc-link">
+        <div class="doc-icon">
+          <svg viewBox="0 0 24 24"><path d="M12 20V4M4 12l8-8 8 8"/></svg>
+        </div>
+        <div class="doc-info">
+          <h4>Odometer Guide</h4>
+          <p>How the odometer is encoded, formulas, modification guide</p>
+        </div>
+      </a>
+
+      <a href="docs/HARDWARE_SETUP.md" class="doc-link">
+        <div class="doc-icon">
+          <svg viewBox="0 0 24 24"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 12h4M14 12h4"/></svg>
+        </div>
+        <div class="doc-info">
+          <h4>Hardware Setup</h4>
+          <p>CH341A wiring, 5V mod, NeoProgrammer setup</p>
+        </div>
+      </a>
+
+      <a href="docs/S93C76A.PDF" class="doc-link">
+        <div class="doc-icon">
+          <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+        </div>
+        <div class="doc-info">
+          <h4>Datasheet</h4>
+          <p>Seiko S-93C76A (93C76) datasheet</p>
+        </div>
+      </a>
+
+    </div>
+  </section>
+
+  <!-- EEPROM Dumps -->
+  <section class="section">
+    <h2 class="section-title">EEPROM Dumps</h2>
+    <p class="section-desc">Community-contributed binary dumps organized by trim and fuel type.</p>
+    <div class="dumps-content">
+      <ul class="dumps-list">
+        <li><code>A_Petrol_SNB</code> <span>&mdash; European petrol trim</span></li>
+        <li><code>B_Petrol_SNA</code> <span>&mdash; DX / EX / LX petrol</span></li>
+        <li><code>C_Diesel_SMJ</code> <span>&mdash; Diesel i-CTDi / i-DTEC</span></li>
+      </ul>
+      <a href="Files/" class="browse-link">&rarr; Browse all dumps on GitHub</a>
+      <div class="dumps-cta">
+        Have a dump to share? <a href="#" id="issue-link-dumps">Open an Issue</a> or submit a <a href="#" id="pr-link-dumps">Pull Request</a>.
+      </div>
+    </div>
+  </section>
+
+  <!-- Community -->
+  <section class="section">
+    <h2 class="section-title">Community</h2>
+    <p class="section-desc">This project is built on shared knowledge. Get involved.</p>
+    <div class="community-grid">
+
+      <a href="#" id="link-discussions" class="community-card">
+        <h4>Discussions</h4>
+        <p>Ask questions, share results, vote on what works.</p>
+      </a>
+
+      <a href="#" id="link-issues" class="community-card">
+        <h4>Issues</h4>
+        <p>Report bugs, upload EEPROM dumps, request features.</p>
+      </a>
+
+      <a href="#" id="link-contribute" class="community-card">
+        <h4>Contribute</h4>
+        <p>Submit working dumps via PR. Help map unknown bytes.</p>
+      </a>
+
+    </div>
+  </section>
+
+  <!-- Quick Reference -->
+  <section class="ref-section">
+    <h2 class="section-title">Quick Reference</h2>
+    <p class="section-desc">Key differences between diesel and petrol EEPROM variants.</p>
+    <div class="ref-table-wrap">
+      <table class="ref-table">
+        <thead>
+          <tr>
+            <th></th>
+            <th>Diesel (SMJ)</th>
+            <th>Petrol (SNA / SNB)</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Header</td>
+            <td><code>BA 65</code></td>
+            <td><code>FF 77</code></td>
+          </tr>
+          <tr>
+            <td>Odometer formula</td>
+            <td>km = value &times; 31</td>
+            <td>km = value &times; 32</td>
+          </tr>
+          <tr>
+            <td>Location</td>
+            <td><code>0x180&ndash;0x1BF</code></td>
+            <td><code>0x180&ndash;0x1BF</code></td>
+          </tr>
+          <tr>
+            <td>Global checksum</td>
+            <td><span class="check">None</span></td>
+            <td><span class="check">None</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer class="footer">
+    <p>Honda Civic 93C76 EEPROM Tools &mdash; Open source on <a href="#" id="link-repo-footer">GitHub</a></p>
+  </footer>
+</div>
+
+<script>
+(function() {
+  // Derive the repo URL from the hosting context
+  var repoUrl;
+  if (window.location.hostname.includes('github.io')) {
+    var user = window.location.hostname.split('.')[0];
+    var repo = window.location.pathname.split('/')[1];
+    repoUrl = 'https://github.com/' + user + '/' + repo;
+  } else {
+    repoUrl = 'https://github.com/casper9429-kth/HONDA_DASH_EEPROM_ANALYSIS';
+  }
+
+  // Community links
+  var el;
+  el = document.getElementById('link-discussions');
+  if (el) el.href = repoUrl + '/discussions';
+
+  el = document.getElementById('link-issues');
+  if (el) el.href = repoUrl + '/issues';
+
+  el = document.getElementById('link-contribute');
+  if (el) el.href = repoUrl;
+
+  // Dumps section links
+  el = document.getElementById('issue-link-dumps');
+  if (el) el.href = repoUrl + '/issues';
+
+  el = document.getElementById('pr-link-dumps');
+  if (el) el.href = repoUrl + '/pulls';
+
+  // Footer
+  el = document.getElementById('link-repo-footer');
+  if (el) el.href = repoUrl;
+})();
+</script>
+
+</body>
+</html>

@@ -1,0 +1,725 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Honda 93C76 EEPROM Repair Tool</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0f1117;--bg2:#181b24;--bg3:#1e222d;--border:#2a2f3d;
+  --text:#c8cdd8;--text2:#8890a0;--text3:#555d70;
+  --amber:#F59E0B;--amber-dim:#b07308;--amber-bg:rgba(245,158,11,.08);
+  --teal:#2DD4BF;--teal-dim:#1a9e8f;--teal-bg:rgba(45,212,191,.08);
+  --red:#EF4444;--red-bg:rgba(239,68,68,.08);
+  --green:#22C55E;--green-bg:rgba(34,197,94,.08);
+  --mono:'SF Mono',Consolas,'Liberation Mono',Menlo,monospace;
+  --sans:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;
+}
+body{background:var(--bg);color:var(--text);font-family:var(--sans);line-height:1.5;padding-bottom:80px}
+/* Alpha banner */
+#alpha-banner{
+  position:sticky;top:0;z-index:999;
+  background:linear-gradient(135deg,#92400E 0%,#B45309 50%,#92400E 100%);
+  color:#FEF3C7;padding:10px 20px;text-align:center;
+  font-size:.9em;font-weight:600;
+  border-bottom:2px solid #D97706;
+  box-shadow:0 2px 12px rgba(245,158,11,.25);
+}
+#alpha-banner a{color:#FDE68A;text-decoration:underline}
+#alpha-banner .alpha-tag{
+  display:inline-block;background:#7C2D12;color:#FBBF24;
+  padding:1px 8px;border-radius:4px;font-size:.8em;
+  letter-spacing:.1em;margin-right:8px;vertical-align:middle;
+}
+#alpha-banner .mail-icon{vertical-align:middle;margin-right:4px}
+.container{max-width:1100px;margin:0 auto;padding:24px 20px}
+h1{font-size:1.3em;color:var(--text2);font-weight:400;margin-bottom:4px}
+.subtitle{font-size:.85em;color:var(--text3);margin-bottom:28px}
+h2{font-size:1.05em;color:var(--text);font-weight:600;margin-bottom:16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+h2 .num{color:var(--text3);font-weight:400;margin-right:6px}
+/* Drop zones */
+.drop-row{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:28px}
+.drop-zone{
+  border:2px dashed var(--border);border-radius:12px;
+  padding:36px 20px;text-align:center;cursor:pointer;
+  transition:border-color .2s,background .2s;min-height:140px;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+}
+.drop-zone:hover,.drop-zone.over{background:var(--bg2)}
+.drop-zone.yours{border-color:var(--amber-dim)}
+.drop-zone.yours:hover,.drop-zone.yours.over{border-color:var(--amber);background:var(--amber-bg)}
+.drop-zone.refs{border-color:var(--teal-dim)}
+.drop-zone.refs:hover,.drop-zone.refs.over{border-color:var(--teal);background:var(--teal-bg)}
+.drop-zone .dz-label{font-size:.8em;font-weight:700;letter-spacing:.1em;margin-bottom:6px}
+.drop-zone.yours .dz-label{color:var(--amber)}
+.drop-zone.refs .dz-label{color:var(--teal)}
+.drop-zone .dz-hint{font-size:.8em;color:var(--text3)}
+.drop-zone .dz-main{font-size:.95em;color:var(--text2);margin-bottom:4px}
+input[type=file]{display:none}
+/* File info cards */
+.file-cards{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:28px}
+.file-card{
+  background:var(--bg2);border:1px solid var(--border);border-radius:8px;
+  padding:10px 14px;font-size:.82em;min-width:200px;flex:0 0 auto;
+}
+.file-card.yours-card{border-left:3px solid var(--amber)}
+.file-card.ref-card{border-left:3px solid var(--teal)}
+.file-card .fc-name{color:var(--text);font-weight:600;word-break:break-all;margin-bottom:4px}
+.file-card .fc-row{color:var(--text2)}
+.file-card .fc-row span{font-family:var(--mono);color:var(--text)}
+/* Section */
+.section{margin-bottom:32px}
+.section.hidden{display:none}
+/* Diagnostic checks */
+.check-item{
+  background:var(--bg2);border:1px solid var(--border);border-radius:8px;
+  padding:14px 16px;margin-bottom:10px;
+}
+.check-header{display:flex;align-items:center;gap:10px;margin-bottom:6px}
+.check-icon{font-size:1.1em;flex-shrink:0;width:22px;text-align:center}
+.check-icon.pass{color:var(--green)}
+.check-icon.warn{color:var(--amber)}
+.check-icon.fail{color:var(--red)}
+.check-title{font-weight:600;font-size:.9em}
+.check-detail{font-size:.8em;color:var(--text2);font-family:var(--mono);margin-left:32px;line-height:1.7}
+.check-detail .hex-val{color:var(--text);background:var(--bg3);padding:1px 5px;border-radius:3px}
+.check-detail .expect{color:var(--green)}
+.check-detail .actual-bad{color:var(--red)}
+.check-detail .actual-warn{color:var(--amber)}
+/* Fix cards */
+.fix-card{
+  background:var(--bg2);border:1px solid var(--border);border-radius:8px;
+  padding:14px 16px;margin-bottom:10px;
+  transition:border-color .2s;
+}
+.fix-card.selected{border-color:var(--amber)}
+.fix-header{display:flex;align-items:center;gap:10px}
+.fix-header input[type=checkbox]{
+  width:18px;height:18px;accent-color:var(--amber);cursor:pointer;flex-shrink:0;
+}
+.fix-title{font-weight:600;font-size:.9em;flex:1}
+.fix-confidence{
+  font-size:.7em;font-weight:700;letter-spacing:.05em;
+  padding:2px 8px;border-radius:4px;flex-shrink:0;
+}
+.fix-confidence.high{background:var(--green-bg);color:var(--green)}
+.fix-confidence.medium{background:var(--amber-bg);color:var(--amber)}
+.fix-confidence.low{background:var(--red-bg);color:var(--red)}
+.fix-detail{font-size:.8em;color:var(--text2);margin:8px 0 0 28px;font-family:var(--mono);line-height:1.7}
+.fix-explain{font-size:.82em;color:var(--text2);margin:4px 0 0 28px;font-family:var(--sans)}
+.fix-arrow{color:var(--amber);margin:0 4px}
+/* Feature flag editor */
+.flag-editor{margin-bottom:28px}
+.flag-byte{
+  background:var(--bg2);border:1px solid var(--border);border-radius:8px;
+  padding:16px;margin-bottom:12px;
+}
+.flag-byte-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+.flag-byte-title{font-weight:600;font-size:.9em}
+.flag-byte-val{font-family:var(--mono);font-size:.85em;color:var(--teal);background:var(--bg3);padding:2px 8px;border-radius:4px}
+.flag-bits{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.flag-bit{
+  display:flex;align-items:center;gap:8px;padding:6px 10px;
+  background:var(--bg3);border-radius:6px;font-size:.82em;
+}
+.flag-bit label{cursor:pointer;flex:1;color:var(--text2)}
+.flag-bit label .bit-num{color:var(--text3);font-family:var(--mono)}
+.flag-bit input[type=checkbox]{accent-color:var(--teal);cursor:pointer;width:16px;height:16px}
+.btn-copy-ref{
+  font-size:.75em;padding:3px 10px;background:var(--bg3);color:var(--teal);
+  border:1px solid var(--teal-dim);border-radius:4px;cursor:pointer;
+  transition:background .2s;
+}
+.btn-copy-ref:hover{background:var(--teal-bg)}
+/* Export */
+.export-section{text-align:center;padding:24px}
+.export-btn{
+  display:inline-block;padding:14px 40px;
+  background:linear-gradient(135deg,#1a3a1a,#1a4a2a);
+  color:var(--green);border:1px solid #2a5a2a;border-radius:10px;
+  font-size:1.05em;font-weight:600;cursor:pointer;transition:background .2s;
+}
+.export-btn:hover:not(:disabled){background:linear-gradient(135deg,#2a4a2a,#2a5a3a)}
+.export-btn:disabled{opacity:.35;cursor:default}
+.export-summary{
+  text-align:left;max-width:600px;margin:16px auto 0;
+  background:var(--bg2);border:1px solid var(--border);border-radius:8px;
+  padding:14px 16px;font-size:.82em;color:var(--text2);font-family:var(--mono);
+  line-height:1.7;display:none;
+}
+.no-issues{color:var(--text3);font-size:.9em;text-align:center;padding:20px}
+@media(max-width:700px){
+  .drop-row{grid-template-columns:1fr}
+  .flag-bits{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+
+<div id="alpha-banner">
+  <span class="alpha-tag">ALPHA</span>
+  This tool has not been fully tested on real hardware. If you use it and it works (or doesn't), please email feedback to
+  <a href="mailto:cas.aug.sav@gmail.com">
+    <svg class="mail-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M22 4L12 13 2 4"/></svg>
+    cas.aug.sav@gmail.com
+  </a>
+</div>
+
+<div class="container">
+
+<h1>Honda 93C76 EEPROM Repair Tool</h1>
+<p class="subtitle">Detect corruption and apply fixes to 1024-byte dashboard EEPROM dumps</p>
+
+<!-- Section 1: File Loader -->
+<div class="section" id="sec-loader">
+  <h2><span class="num">1.</span> File Loader</h2>
+  <div class="drop-row">
+    <div class="drop-zone yours" id="dz-yours" onclick="fileYours.click()">
+      <div class="dz-label">YOUR FILE</div>
+      <div class="dz-main">Drop .bin to repair</div>
+      <div class="dz-hint">Single 1024-byte file</div>
+    </div>
+    <div class="drop-zone refs" id="dz-refs" onclick="fileRefs.click()">
+      <div class="dz-label">REFERENCE FILES</div>
+      <div class="dz-main">Drop known-good .bin files</div>
+      <div class="dz-hint">Multiple files accepted</div>
+    </div>
+  </div>
+  <input type="file" id="fileYours" accept=".bin">
+  <input type="file" id="fileRefs" accept=".bin" multiple>
+  <div class="file-cards" id="file-cards"></div>
+</div>
+
+<!-- Section 2: Diagnostic Report -->
+<div class="section hidden" id="sec-diag">
+  <h2><span class="num">2.</span> Diagnostic Report</h2>
+  <div id="diag-checks"></div>
+</div>
+
+<!-- Section 3: Fix Builder -->
+<div class="section hidden" id="sec-fixes">
+  <h2><span class="num">3.</span> Fix Builder</h2>
+  <div id="fix-cards"></div>
+</div>
+
+<!-- Section 4: Feature Flag Editor -->
+<div class="section hidden" id="sec-flags">
+  <h2><span class="num">4.</span> Feature Flag Editor</h2>
+  <div id="flag-editors"></div>
+</div>
+
+<!-- Section 5: Export -->
+<div class="section hidden" id="sec-export">
+  <h2><span class="num">5.</span> Export</h2>
+  <div class="export-section">
+    <button class="export-btn" id="exportBtn" disabled onclick="doExport()">Download Repaired .bin</button>
+    <div class="export-summary" id="exportSummary"></div>
+  </div>
+</div>
+
+</div>
+
+<script>
+/* ── State ────────────────────────────────────── */
+let userFile = null;   // {name, raw, native}
+let refFiles = [];     // [{name, raw, native}, ...]
+let fixes = [];        // [{id, title, confidence, explain, addr, before, after, enabled}]
+let flagEdits = {};    // {addr: newValue}
+
+/* ── Byte-swap helpers ────────────────────────── */
+function rawToNative(raw) {
+  const n = new Uint8Array(raw.length);
+  for (let i = 0; i < raw.length; i += 2) {
+    n[i]     = raw[i + 1] !== undefined ? raw[i + 1] : 0;
+    n[i + 1] = raw[i];
+  }
+  return n;
+}
+function nativeToRaw(native) {
+  return rawToNative(native); // same swap operation
+}
+
+/* ── File info extraction ─────────────────────── */
+function getVariant(native) {
+  if (native[0] === 0x65 && native[1] === 0xBA) return 'diesel';
+  if (native[0] === 0xFF && native[1] === 0x77) return 'petrol';
+  return 'unknown';
+}
+
+function getBoardRevision(native) {
+  let s = '';
+  for (let i = 0x390; i <= 0x395; i++) {
+    const c = native[i];
+    if (c >= 0x20 && c < 0x7F) s += String.fromCharCode(c);
+    else s += '.';
+  }
+  return s;
+}
+
+function getOdometer(native) {
+  const variant = getVariant(native);
+  const mul = variant === 'petrol' ? 32 : 31;
+  let maxKm = 0, valid = 0;
+  for (let s = 0; s < 16; s++) {
+    const base = 0x180 + s * 4;
+    const hi = native[base], lo = native[base + 1];
+    const chi = native[base + 2], clo = native[base + 3];
+    const word = (hi << 8) | lo;
+    const comp = (chi << 8) | clo;
+    if ((word ^ comp) === 0xFFFF) {
+      valid++;
+      const km = word * mul;
+      if (km > maxKm) maxKm = km;
+    }
+  }
+  return { km: maxKm, valid, total: 16 };
+}
+
+/* ── Hex formatting ───────────────────────────── */
+function hex8(v) { return v.toString(16).toUpperCase().padStart(2, '0'); }
+function hexSlice(arr, start, end) {
+  return Array.from(arr.slice(start, end)).map(hex8).join(' ');
+}
+
+/* ── Drop zone wiring ─────────────────────────── */
+function setupDrop(el, input, handler) {
+  ['dragenter','dragover'].forEach(e => el.addEventListener(e, ev => { ev.preventDefault(); el.classList.add('over'); }));
+  ['dragleave','drop'].forEach(e => el.addEventListener(e, () => el.classList.remove('over')));
+  el.addEventListener('drop', ev => { ev.preventDefault(); handler(ev.dataTransfer.files); });
+  input.addEventListener('change', () => { handler(input.files); input.value = ''; });
+}
+
+function loadFile(file) {
+  return new Promise((res, rej) => {
+    const r = new FileReader();
+    r.onload = () => {
+      const raw = new Uint8Array(r.result);
+      if (raw.length !== 1024) { rej(`${file.name}: expected 1024 bytes, got ${raw.length}`); return; }
+      const native = rawToNative(raw);
+      res({ name: file.name, raw: new Uint8Array(raw), native: new Uint8Array(native) });
+    };
+    r.onerror = () => rej(`Failed to read ${file.name}`);
+    r.readAsArrayBuffer(file);
+  });
+}
+
+async function handleUserFile(files) {
+  if (!files.length) return;
+  try {
+    userFile = await loadFile(files[0]);
+    renderCards();
+    runDiagnostics();
+  } catch (e) { alert(e); }
+}
+
+async function handleRefFiles(files) {
+  for (const f of files) {
+    try {
+      const rf = await loadFile(f);
+      // avoid duplicates
+      if (!refFiles.find(x => x.name === rf.name)) refFiles.push(rf);
+    } catch (e) { alert(e); }
+  }
+  renderCards();
+  if (userFile) runDiagnostics();
+}
+
+const fileYours = document.getElementById('fileYours');
+const fileRefs = document.getElementById('fileRefs');
+setupDrop(document.getElementById('dz-yours'), fileYours, handleUserFile);
+setupDrop(document.getElementById('dz-refs'), fileRefs, handleRefFiles);
+
+/* ── Render file info cards ───────────────────── */
+function renderCards() {
+  const el = document.getElementById('file-cards');
+  let html = '';
+  if (userFile) {
+    const v = getVariant(userFile.native);
+    const br = getBoardRevision(userFile.native);
+    const od = getOdometer(userFile.native);
+    html += `<div class="file-card yours-card">
+      <div class="fc-name">${esc(userFile.name)}</div>
+      <div class="fc-row">Variant: <span>${v}</span></div>
+      <div class="fc-row">Board: <span>${esc(br)}</span></div>
+      <div class="fc-row">Odometer: <span>${od.km.toLocaleString()} km</span> (${od.valid}/${od.total} valid)</div>
+    </div>`;
+  }
+  for (const rf of refFiles) {
+    const v = getVariant(rf.native);
+    const br = getBoardRevision(rf.native);
+    const od = getOdometer(rf.native);
+    html += `<div class="file-card ref-card">
+      <div class="fc-name">${esc(rf.name)}</div>
+      <div class="fc-row">Variant: <span>${v}</span></div>
+      <div class="fc-row">Board: <span>${esc(br)}</span></div>
+      <div class="fc-row">Odometer: <span>${od.km.toLocaleString()} km</span> (${od.valid}/${od.total} valid)</div>
+    </div>`;
+  }
+  el.innerHTML = html;
+}
+
+function esc(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+
+/* ── Diagnostics ──────────────────────────────── */
+function refConsensus(start, len) {
+  // Find the most common byte sequence among refs for a range
+  if (!refFiles.length) return null;
+  const counts = {};
+  for (const rf of refFiles) {
+    const key = hexSlice(rf.native, start, start + len);
+    counts[key] = (counts[key] || 0) + 1;
+  }
+  let best = null, bestN = 0;
+  for (const [k, n] of Object.entries(counts)) {
+    if (n > bestN) { best = k; bestN = n; }
+  }
+  // convert hex string back to bytes
+  const bytes = best.split(' ').map(h => parseInt(h, 16));
+  return { bytes: new Uint8Array(bytes), hex: best, count: bestN, total: refFiles.length };
+}
+
+function runDiagnostics() {
+  if (!userFile) return;
+  const n = userFile.native;
+  const checks = [];
+  fixes = [];
+
+  // 1. Header Check
+  const hdrActual = hexSlice(n, 0x000, 0x002);
+  const variant = getVariant(n);
+  let hdrExpect = variant === 'diesel' ? '65 BA' : variant === 'petrol' ? 'FF 77' : null;
+  let hdrStatus = 'fail';
+  if (variant === 'diesel' || variant === 'petrol') hdrStatus = 'pass';
+  if (!hdrExpect) hdrExpect = '65 BA (diesel) or FF 77 (petrol)';
+  checks.push({
+    title: 'Header Check',
+    status: hdrStatus,
+    detail: `Address 0x000-0x001: <span class="hex-val">${hdrActual}</span>` +
+      (hdrStatus === 'pass' ? ` <span class="expect">(valid ${variant})</span>` :
+        ` <span class="actual-bad">expected ${hdrExpect}</span>`)
+  });
+
+  // 2. Boundary Markers
+  const BOUNDARY_EXPECTED = [
+    0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
+    0x00,0x00,0x00,0x00,0x00,0x00,0x00,0xF0,
+    0xFF,0xFF,0xF0,0x00,0x00,0x00,0x00,0x00,
+    0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00
+  ];
+  const bndActual = Array.from(n.slice(0x0F0, 0x110));
+  const bndMatch = bndActual.every((b, i) => b === BOUNDARY_EXPECTED[i]);
+  const allFF = bndActual.every(b => b === 0xFF);
+  let bndStatus = bndMatch ? 'pass' : 'fail';
+  checks.push({
+    title: 'Boundary Markers',
+    status: bndStatus,
+    detail: `Address 0x0F0-0x10F:<br>Actual:&nbsp;&nbsp; <span class="hex-val">${hexSlice(n, 0x0F0, 0x100)}</span><br>` +
+      `&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="hex-val">${hexSlice(n, 0x100, 0x110)}</span><br>` +
+      (bndMatch ? `<span class="expect">Matches expected pattern</span>` :
+        (allFF ? `<span class="actual-bad">All 0xFF — likely erased</span>` :
+          `<span class="actual-bad">Does not match expected pattern</span>`))
+  });
+  if (!bndMatch) {
+    fixes.push({
+      id: 'boundary', title: 'Restore Boundary Markers', confidence: 'high',
+      explain: 'Write the correct 32-byte boundary pattern at 0x0F0-0x10F',
+      addr: 0x0F0, before: bndActual, after: BOUNDARY_EXPECTED, enabled: true
+    });
+  }
+
+  // 3. Status Flags
+  const sfActual = hexSlice(n, 0x1FC, 0x1FE);
+  const sfRef = refConsensus(0x1FC, 2);
+  const sfExpectDiesel = '10 0E';
+  let sfStatus = 'pass';
+  if (sfActual !== sfExpectDiesel) sfStatus = 'warn';
+  let sfDetail = `Address 0x1FC-0x1FD: <span class="hex-val">${sfActual}</span>`;
+  if (sfRef) sfDetail += `<br>Reference consensus: <span class="hex-val">${sfRef.hex}</span> (${sfRef.count}/${sfRef.total} files)`;
+  if (sfStatus === 'pass') sfDetail += `<br><span class="expect">Matches expected diesel value (10 0E)</span>`;
+  else sfDetail += `<br><span class="actual-warn">Expected 10 0E for diesel</span>`;
+  checks.push({ title: 'Status Flags', status: sfStatus, detail: sfDetail });
+  if (sfStatus !== 'pass') {
+    const expected = [0x10, 0x0E];
+    fixes.push({
+      id: 'status-flags', title: 'Fix Status Flags', confidence: 'high',
+      explain: 'Write 10 0E at 0x1FC-0x1FD (standard diesel status flags)',
+      addr: 0x1FC, before: Array.from(n.slice(0x1FC, 0x1FE)), after: expected, enabled: true
+    });
+  }
+
+  // 4. Odometer Integrity
+  const od = getOdometer(n);
+  let odStatus = 'pass';
+  if (od.valid < 15) odStatus = 'warn';
+  if (od.valid < 12) odStatus = 'fail';
+  let odDetail = `${od.valid}/${od.total} slots valid (${od.km.toLocaleString()} km)`;
+  // Show per-slot breakdown
+  odDetail += '<br>';
+  for (let s = 0; s < 16; s++) {
+    const base = 0x180 + s * 4;
+    const hi = n[base], lo = n[base + 1], chi = n[base + 2], clo = n[base + 3];
+    const word = (hi << 8) | lo;
+    const comp = (chi << 8) | clo;
+    const ok = (word ^ comp) === 0xFFFF;
+    odDetail += `<br>Slot ${s.toString().padStart(2,' ')}: <span class="hex-val">${hex8(hi)} ${hex8(lo)} ${hex8(chi)} ${hex8(clo)}</span> `;
+    if (ok) {
+      const mul = variant === 'petrol' ? 32 : 31;
+      odDetail += `<span class="expect">${(word * mul).toLocaleString()} km</span>`;
+    } else {
+      odDetail += `<span class="actual-bad">INVALID (XOR=${hex8((word ^ comp) >> 8)} ${hex8((word ^ comp) & 0xFF)})</span>`;
+    }
+  }
+  checks.push({ title: 'Odometer Integrity', status: odStatus, detail: odDetail });
+
+  // 5. Config Footer
+  const cfActual = hexSlice(n, 0x3F2, 0x3FC);
+  const cfRef = refConsensus(0x3F2, 10);
+  let cfStatus = 'pass';
+  let cfDetail = `Address 0x3F2-0x3FB: <span class="hex-val">${cfActual}</span>`;
+  if (cfRef) {
+    cfDetail += `<br>Reference consensus: <span class="hex-val">${cfRef.hex}</span> (${cfRef.count}/${cfRef.total} files)`;
+    if (cfActual !== cfRef.hex) {
+      cfStatus = 'warn';
+      cfDetail += `<br><span class="actual-warn">Does not match reference consensus</span>`;
+      fixes.push({
+        id: 'config-footer', title: 'Restore Config Footer', confidence: 'medium',
+        explain: 'Write the reference consensus config footer at 0x3F2-0x3FB',
+        addr: 0x3F2, before: Array.from(n.slice(0x3F2, 0x3FC)), after: Array.from(cfRef.bytes), enabled: true
+      });
+    } else {
+      cfDetail += `<br><span class="expect">Matches reference consensus</span>`;
+    }
+  } else {
+    cfDetail += `<br><span class="actual-warn">No reference files loaded for comparison</span>`;
+    cfStatus = 'warn';
+  }
+  checks.push({ title: 'Config Footer', status: cfStatus, detail: cfDetail });
+
+  // 6. Gauge Parity
+  let xorVal = 0;
+  for (let i = 0x1C0; i <= 0x1E7; i++) xorVal ^= n[i];
+  let gpStatus = xorVal === 0 ? 'pass' : 'warn';
+  checks.push({
+    title: 'Gauge Parity',
+    status: gpStatus,
+    detail: `XOR of bytes 0x1C0-0x1E7: <span class="hex-val">${hex8(xorVal)}</span> ` +
+      (xorVal === 0 ? `<span class="expect">Parity OK</span>` :
+        `<span class="actual-warn">Non-zero — possible gauge calibration issue</span>`)
+  });
+
+  renderDiagnostics(checks);
+  renderFixes();
+  renderFlagEditor();
+  showSections();
+}
+
+function renderDiagnostics(checks) {
+  const el = document.getElementById('diag-checks');
+  const icons = { pass: '<span class="check-icon pass">&#10003;</span>',
+                  warn: '<span class="check-icon warn">&#9888;</span>',
+                  fail: '<span class="check-icon fail">&#10007;</span>' };
+  el.innerHTML = checks.map(c => `
+    <div class="check-item">
+      <div class="check-header">${icons[c.status]}<span class="check-title">${c.title}</span></div>
+      <div class="check-detail">${c.detail}</div>
+    </div>
+  `).join('');
+}
+
+function renderFixes() {
+  const el = document.getElementById('fix-cards');
+  if (!fixes.length) {
+    el.innerHTML = '<div class="no-issues">No fixes needed — all critical checks passed.</div>';
+    return;
+  }
+  el.innerHTML = fixes.map((f, i) => `
+    <div class="fix-card ${f.enabled ? 'selected' : ''}" id="fix-${f.id}">
+      <div class="fix-header">
+        <input type="checkbox" ${f.enabled ? 'checked' : ''} onchange="toggleFix(${i}, this.checked)">
+        <span class="fix-title">${f.title}</span>
+        <span class="fix-confidence ${f.confidence}">${f.confidence.toUpperCase()}</span>
+      </div>
+      <div class="fix-detail">
+        0x${f.addr.toString(16).toUpperCase().padStart(3,'0')}: <span class="hex-val">${f.before.map(hex8).join(' ')}</span>
+        <span class="fix-arrow">&#8594;</span>
+        <span class="hex-val">${f.after.map(hex8).join(' ')}</span>
+      </div>
+      <div class="fix-explain">${f.explain}</div>
+    </div>
+  `).join('');
+}
+
+function toggleFix(i, checked) {
+  fixes[i].enabled = checked;
+  document.getElementById(`fix-${fixes[i].id}`).classList.toggle('selected', checked);
+}
+
+/* ── Feature Flag Editor ──────────────────────── */
+const FLAG_BYTES = [
+  {
+    addr: 0x00C,
+    labels: {
+      7: 'Extended Features (suspected)',
+      6: 'Unknown bit 6', 5: 'Unknown bit 5', 4: 'Unknown bit 4',
+      3: 'Unknown bit 3', 2: 'Unknown bit 2', 1: 'Unknown bit 1', 0: 'Unknown bit 0'
+    }
+  },
+  {
+    addr: 0x012,
+    labels: {
+      7: 'Trim Level High (suspected)',
+      6: 'Trim Level Low (suspected)',
+      5: 'Unknown bit 5', 4: 'Unknown bit 4',
+      3: 'Unknown bit 3', 2: 'Unknown bit 2',
+      1: 'Parking Sensors (suspected)',
+      0: 'Unknown bit 0'
+    }
+  }
+];
+
+function renderFlagEditor() {
+  if (!userFile) return;
+  const n = userFile.native;
+  flagEdits = {};
+  const el = document.getElementById('flag-editors');
+  let html = '';
+
+  for (const fb of FLAG_BYTES) {
+    const val = n[fb.addr];
+    flagEdits[fb.addr] = val;
+    const addrHex = '0x' + fb.addr.toString(16).toUpperCase().padStart(3, '0');
+
+    html += `<div class="flag-byte" id="flagbyte-${fb.addr}">
+      <div class="flag-byte-header">
+        <span class="flag-byte-title">Byte ${addrHex}</span>
+        <span>
+          <span class="flag-byte-val" id="flagval-${fb.addr}">${hex8(val)}</span>
+          <button class="btn-copy-ref" onclick="copyFlagFromRef(${fb.addr})">Copy from reference</button>
+        </span>
+      </div>
+      <div class="flag-bits">`;
+
+    for (let bit = 7; bit >= 0; bit--) {
+      const on = (val >> bit) & 1;
+      html += `<div class="flag-bit">
+        <input type="checkbox" id="flag-${fb.addr}-${bit}" ${on ? 'checked' : ''}
+          onchange="toggleFlag(${fb.addr}, ${bit}, this.checked)">
+        <label for="flag-${fb.addr}-${bit}">
+          <span class="bit-num">b${bit}</span> ${fb.labels[bit]}
+        </label>
+      </div>`;
+    }
+
+    html += `</div></div>`;
+  }
+  el.innerHTML = html;
+}
+
+function toggleFlag(addr, bit, on) {
+  if (on) flagEdits[addr] |= (1 << bit);
+  else flagEdits[addr] &= ~(1 << bit);
+  flagEdits[addr] &= 0xFF;
+  document.getElementById(`flagval-${addr}`).textContent = hex8(flagEdits[addr]);
+}
+
+function copyFlagFromRef(addr) {
+  if (!refFiles.length) { alert('No reference files loaded.'); return; }
+  // Use first reference file (or could add a selector)
+  let refVal;
+  if (refFiles.length === 1) {
+    refVal = refFiles[0].native[addr];
+  } else {
+    // consensus
+    const counts = {};
+    for (const rf of refFiles) {
+      const v = rf.native[addr];
+      counts[v] = (counts[v] || 0) + 1;
+    }
+    let best = 0, bestN = 0;
+    for (const [v, c] of Object.entries(counts)) {
+      if (c > bestN) { best = parseInt(v); bestN = c; }
+    }
+    refVal = best;
+  }
+  flagEdits[addr] = refVal;
+  document.getElementById(`flagval-${addr}`).textContent = hex8(refVal);
+  // Update checkboxes
+  for (let bit = 7; bit >= 0; bit--) {
+    document.getElementById(`flag-${addr}-${bit}`).checked = !!((refVal >> bit) & 1);
+  }
+}
+
+/* ── Show sections ────────────────────────────── */
+function showSections() {
+  document.getElementById('sec-diag').classList.remove('hidden');
+  document.getElementById('sec-fixes').classList.remove('hidden');
+  document.getElementById('sec-flags').classList.remove('hidden');
+  document.getElementById('sec-export').classList.remove('hidden');
+  document.getElementById('exportBtn').disabled = false;
+}
+
+/* ── Export ────────────────────────────────────── */
+function doExport() {
+  if (!userFile) return;
+
+  // Work on a copy of native
+  const patched = new Uint8Array(userFile.native);
+  const changes = [];
+
+  // Apply fixes
+  for (const f of fixes) {
+    if (!f.enabled) continue;
+    for (let i = 0; i < f.after.length; i++) {
+      const addr = f.addr + i;
+      if (patched[addr] !== f.after[i]) {
+        changes.push({ addr, from: patched[addr], to: f.after[i], source: f.title });
+        patched[addr] = f.after[i];
+      }
+    }
+  }
+
+  // Apply feature flag edits
+  for (const fb of FLAG_BYTES) {
+    const addr = fb.addr;
+    const newVal = flagEdits[addr];
+    if (newVal !== undefined && newVal !== userFile.native[addr]) {
+      changes.push({ addr, from: userFile.native[addr], to: newVal, source: 'Feature Flag Edit' });
+      patched[addr] = newVal;
+    }
+  }
+
+  // Show summary
+  const sumEl = document.getElementById('exportSummary');
+  if (changes.length === 0) {
+    sumEl.style.display = 'block';
+    sumEl.innerHTML = 'No changes to apply. File is identical to original.';
+  } else {
+    sumEl.style.display = 'block';
+    let sumHtml = `<strong>${changes.length} byte(s) changed:</strong><br><br>`;
+    for (const c of changes) {
+      sumHtml += `0x${c.addr.toString(16).toUpperCase().padStart(3,'0')}: ` +
+        `${hex8(c.from)} <span class="fix-arrow">&rarr;</span> ${hex8(c.to)} ` +
+        `<span style="color:var(--text3)">(${c.source})</span><br>`;
+    }
+    sumEl.innerHTML = sumHtml;
+  }
+
+  // Convert back to raw (byte-swap)
+  const raw = nativeToRaw(patched);
+
+  // Download
+  const blob = new Blob([raw], { type: 'application/octet-stream' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  const baseName = userFile.name.replace(/\.bin$/i, '');
+  a.href = url;
+  a.download = `repaired_${baseName}.bin`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+</script>
+</body>
+</html>
